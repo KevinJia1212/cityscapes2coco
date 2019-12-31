@@ -1,5 +1,5 @@
 # cityscapes2coco
-some Python scripts can be used to convert the cityscapes dataset to the annotation style of coco dataset for instance segmentation task.
+some Python scripts which can be used to convert the cityscapes dataset to the annotation style of coco dataset for instance segmentation task.
 
 transcityscapes2coco.py has some details that users should modify, like class definations and file paths of your cityscapes data.
 
