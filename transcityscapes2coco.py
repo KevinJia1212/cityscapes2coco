@@ -5,6 +5,7 @@ if "/opt/ros/kinetic/lib/python2.7/dist-packages" in sys.path:
 import cv2
 import numpy as np
 import os, glob
+from shutil import copyfile
 import datetime
 import json
 import os
@@ -14,18 +15,19 @@ from PIL import Image
 import numpy as np
 from pycococreatortools import pycococreatortools
  
-ROOT_DIR = '/data/cityscapes/val'
-IMAGE_DIR = os.path.join(ROOT_DIR, "images/frankfurt")
-ANNOTATION_DIR = os.path.join(ROOT_DIR, "gt/frankfurt")
+ROOT_DIR = '/home/d205-kun/cityscapes/val'
+IMAGE_DIR = os.path.join(ROOT_DIR, "images")
+ANNOTATION_DIR = os.path.join(ROOT_DIR, "gt")
 INSTANCE_DIR = os.path.join(ROOT_DIR, "instances") 
+IMAGE_SAVE_DIR = os.path.join(ROOT_DIR, "val_images")
 
 INFO = {
     "description": "Cityscapes_Instance Dataset",
     "url": "https://github.com/waspinator/pycococreator",
     "version": "0.1.0",
-    "year": "2019",
+    "year": "2020",
     "contributor": "Kevin_Jia",
-    "date_created": "2019-12-30 16:16:16.123456"
+    "date_created": "2020-1-3 19:19:19.123456"
 }
  
 LICENSES = [
@@ -65,13 +67,40 @@ CATEGORIES = [
 ]
 
 background_label = list(range(-1, 24, 1)) + list(range(29, 34, 1))
+idx=0
 
-def masks_generator(imges):
-    idx = 0
+def image_trans():
+    img_subfolders = os.listdir(IMAGE_DIR)
+    image_count = 0
+    for sub in img_subfolders:
+        sub_path = os.path.join(IMAGE_DIR, sub)
+        for images in os.listdir(sub_path):
+            img_path = os.path.join(sub_path, images)
+            img_save_path = os.path.join(IMAGE_SAVE_DIR, images)
+            copyfile(img_path, img_save_path)
+            print(image_count)
+            image_count += 1
+
+def data_loader():
+    img_subfolders = os.listdir(IMAGE_DIR)
+    # image_count = 0
+    for sub in img_subfolders:
+        img_sub_path = os.path.join(IMAGE_DIR, sub)
+        ann_sub_path = os.path.join(ANNOTATION_DIR, sub)
+        masks_generator(os.listdir(img_sub_path), ann_sub_path)
+        # for images in os.listdir(sub_path):
+        #     img_path = os.path.join(sub_path, images)
+        #     img_save_path = os.path.join(IMAGE_SAVE_DIR, images)
+        #     copyfile(img_path, img_save_path)
+        #     print(image_count)
+        #     image_count += 1
+
+def masks_generator(imges, ann_sub_path):
+    global idx
     for pic_name in imges:
         annotation_name = pic_name.split('_')[0] + '_' + pic_name.split('_')[1] + '_' + pic_name.split('_')[2] + '_gtFine_instanceIds.png'
         print(annotation_name)
-        annotation = cv2.imread(os.path.join(ANNOTATION_DIR, annotation_name), -1)
+        annotation = cv2.imread(os.path.join(ann_sub_path, annotation_name), -1)
         name = pic_name.split('.')[0]
         h, w = annotation.shape[:2]
         ids = np.unique(annotation)
@@ -118,12 +147,12 @@ def filter_for_instances(root, files, image_filename):
     return files
  
  
-def main():
+def json_generate():
     # for root, _, files in os.walk(ANNOTATION_DIR):
-    files = os.listdir(IMAGE_DIR)
+    files = os.listdir(IMAGE_SAVE_DIR)
     image_files = filter_for_pic(files)
-    masks_generator(image_files)
-
+    # masks_generator(image_files)
+    # data_loader()
     coco_output = {
         "info": INFO,
         "licenses": LICENSES,
@@ -139,7 +168,7 @@ def main():
 
     # go through each image
     for image_filename in image_files:
-        image_path = os.path.join(IMAGE_DIR, image_filename)
+        image_path = os.path.join(IMAGE_SAVE_DIR, image_filename)
         image = Image.open(image_path)
         image_info = pycococreatortools.create_image_info(
                 image_id, os.path.basename(image_filename), image.size)
@@ -170,9 +199,13 @@ def main():
 
         image_id = image_id + 1
  
-    with open('{}/frankfurt.json'.format(ROOT_DIR), 'w') as output_json_file:
+    with open('{}/val.json'.format(ROOT_DIR), 'w') as output_json_file:
         json.dump(coco_output, output_json_file)
  
  
 if __name__ == "__main__":
-    main()
+    # image_trans()
+    # data_loader()
+    json_generate()
+    
+    
