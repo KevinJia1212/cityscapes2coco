@@ -15,9 +15,10 @@ from PIL import Image
 import numpy as np
 from pycococreatortools import pycococreatortools
  
-ROOT_DIR = '/home/d205-kun/cityscapes/val'
+ROOT_DIR = '/home/kun/cityscapes_val'
 IMAGE_DIR = os.path.join(ROOT_DIR, "images")
 ANNOTATION_DIR = os.path.join(ROOT_DIR, "gt")
+ANNOTATION_SAVE_DIR = os.path.join(ROOT_DIR, "annotations")
 INSTANCE_DIR = os.path.join(ROOT_DIR, "instances") 
 IMAGE_SAVE_DIR = os.path.join(ROOT_DIR, "val_images")
 
@@ -27,7 +28,7 @@ INFO = {
     "version": "0.1.0",
     "year": "2020",
     "contributor": "Kevin_Jia",
-    "date_created": "2020-1-3 19:19:19.123456"
+    "date_created": "2020-1-23 19:19:19.123456"
 }
  
 LICENSES = [
@@ -68,66 +69,83 @@ CATEGORIES = [
 
 background_label = list(range(-1, 24, 1)) + list(range(29, 34, 1))
 idx=0
+pic_scale = 1.0
+h_bias = 1.0
 
 def image_trans():
     img_subfolders = os.listdir(IMAGE_DIR)
     image_count = 0
     for sub in img_subfolders:
-        sub_path = os.path.join(IMAGE_DIR, sub)
-        for images in os.listdir(sub_path):
-            img_path = os.path.join(sub_path, images)
-            img_save_path = os.path.join(IMAGE_SAVE_DIR, images)
-            copyfile(img_path, img_save_path)
+        # sub_path = sub + '/' + sub
+        image_sub_path = os.path.join(IMAGE_DIR, sub)
+        for image in os.listdir(image_sub_path):
+            img_path = os.path.join(image_sub_path, image)
+            ann_name = image.split('_')[0] + '_' + image.split('_')[1] + '_' + image.split('_')[2] + '_gtFine_instanceIds.png'
+            ann_sub_path = os.path.join(ANNOTATION_DIR, sub)
+            ann_path = os.path.join(ann_sub_path, ann_name)
+            if os.path.exists(ann_path): 
+                pic = cv2.imread(img_path)
+                h, w = pic.shape[:2]
+                new_w = w * pic_scale
+                new_h = new_w / 2
+                top = int((h_bias*h-new_h)/2)
+                bottom = int((h_bias*h+new_h)/2)
+                left = int((w-new_w)/2)
+                right = int((w+new_w)/2)
+                roi = pic[top:bottom, left:right]
+                img_save_path = os.path.join(IMAGE_SAVE_DIR, image)
+                cv2.imwrite(img_save_path, roi) 
+                annotation = cv2.imread(ann_path, -1)
+                ann_roi = annotation[top:bottom, left:right]
+                ann_save_path = os.path.join(ANNOTATION_SAVE_DIR, ann_name)
+                cv2.imwrite(ann_save_path, ann_roi)
+            else:
+                print(image + '  do not have instance annotation')
             print(image_count)
             image_count += 1
 
 def data_loader():
-    img_subfolders = os.listdir(IMAGE_DIR)
-    # image_count = 0
-    for sub in img_subfolders:
-        img_sub_path = os.path.join(IMAGE_DIR, sub)
-        ann_sub_path = os.path.join(ANNOTATION_DIR, sub)
-        masks_generator(os.listdir(img_sub_path), ann_sub_path)
-        # for images in os.listdir(sub_path):
-        #     img_path = os.path.join(sub_path, images)
-        #     img_save_path = os.path.join(IMAGE_SAVE_DIR, images)
-        #     copyfile(img_path, img_save_path)
-        #     print(image_count)
-        #     image_count += 1
+    imgs = os.listdir(IMAGE_SAVE_DIR)
+    masks_generator(imgs, ANNOTATION_SAVE_DIR)
 
-def masks_generator(imges, ann_sub_path):
+def masks_generator(imges, ann_path):
     global idx
+    pic_count = 0
     for pic_name in imges:
+        image_name = pic_name.split('.')[0]
+        ann_folder = os.path.join(INSTANCE_DIR, image_name)
+        os.mkdir(ann_folder)
         annotation_name = pic_name.split('_')[0] + '_' + pic_name.split('_')[1] + '_' + pic_name.split('_')[2] + '_gtFine_instanceIds.png'
+        # annotation_name = image_name + '_instanceIds.png'
         print(annotation_name)
-        annotation = cv2.imread(os.path.join(ann_sub_path, annotation_name), -1)
-        name = pic_name.split('.')[0]
+        annotation = cv2.imread(os.path.join(ann_path, annotation_name), -1)
         h, w = annotation.shape[:2]
         ids = np.unique(annotation)
         for id in ids:
             if id in background_label:
                 continue
-            instance_id = id
-            class_id = instance_id // 1000
-            if class_id == 24:
-                instance_class = 'pedestrian'
-            elif class_id == 25:
-                instance_class = 'rider' 
-            elif class_id == 26:
-                instance_class = 'car'
-            elif class_id == 27:
-                instance_class = 'truck'
-            elif class_id == 28:
-                instance_class = 'bus'
             else:
-                continue
-            print(instance_id)
+                class_id = id // 1000
+                if class_id == 26:
+                    instance_class = 'car'
+                elif class_id == 24:
+                    instance_class = 'pedestrian' 
+                elif class_id == 27:
+                    instance_class = 'truck'
+                elif class_id == 28:
+                    instance_class = 'bus'
+                elif class_id == 25:
+                    instance_class = 'rider'
+                else:
+                    continue    
             instance_mask = np.zeros((h, w, 3),dtype=np.uint8)
-            mask = annotation == instance_id
+            mask = annotation == id
             instance_mask[mask] = 255
-            mask_name = name + '_' + instance_class + '_' + str(idx) + '.png'
-            cv2.imwrite(os.path.join(INSTANCE_DIR, mask_name), instance_mask)
+            mask_name = image_name + '_' + instance_class + '_' + str(idx) + '.png'
+            cv2.imwrite(os.path.join(ann_folder, mask_name), instance_mask)
             idx += 1
+        pic_count += 1
+        print(pic_count)
 
 def filter_for_pic(files):
     file_types = ['*.jpeg', '*.jpg', '*.png']
@@ -148,11 +166,13 @@ def filter_for_instances(root, files, image_filename):
  
  
 def json_generate():
-    # for root, _, files in os.walk(ANNOTATION_DIR):
+    car = 0
+    pedestrian = 0
+    truck = 0
+    bus = 0
+    rider = 0
     files = os.listdir(IMAGE_SAVE_DIR)
-    image_files = filter_for_pic(files)
-    # masks_generator(image_files)
-    # data_loader()
+
     coco_output = {
         "info": INFO,
         "licenses": LICENSES,
@@ -160,52 +180,69 @@ def json_generate():
         "images": [],
         "annotations": []
     }
+
     image_id = 1
     segmentation_id = 1
-    
-    files = os.listdir(INSTANCE_DIR)
-    instance_files = filter_for_pic(files)
 
     # go through each image
-    for image_filename in image_files:
+    for image_filename in files:
+        image_name = image_filename.split('.')[0]
         image_path = os.path.join(IMAGE_SAVE_DIR, image_filename)
         image = Image.open(image_path)
         image_info = pycococreatortools.create_image_info(
                 image_id, os.path.basename(image_filename), image.size)
         coco_output["images"].append(image_info)
+        print(image_filename)
+        # annotation_files = filter_for_instances(INSTANCE_DIR, instance_files, image_filename)
+        annotation_sub_path = os.path.join(INSTANCE_DIR, image_name)
+        ann_files = os.listdir(annotation_sub_path)
+        if len(ann_files) == 0:
+            print("ao avaliable annotation")
+            continue
+        else:
+            for annotation_filename in ann_files:
+                annotation_path = os.path.join(annotation_sub_path, annotation_filename)
+                for x in CATEGORIES:
+                    if x['name'] in annotation_filename:
+                        class_id = x['id']
+                        break
+                # class_id = [x['id'] for x in CATEGORIES if x['name'] in annotation_filename][0]
+                if class_id == 1:
+                    car += 1
+                elif class_id == 2:
+                    pedestrian += 1
+                elif class_id == 3:
+                    truck += 1
+                elif class_id == 4:
+                    bus += 1
+                elif class_id == 5:
+                    rider += 1
+                else:
+                    print('illegal class id')
+                category_info = {'id': class_id, 'is_crowd': 'crowd' in image_filename}
+                binary_mask = np.asarray(Image.open(annotation_path)
+                                            .convert('1')).astype(np.uint8)
 
-        # filter for associated png annotations
-        # for root, _, files in os.walk(INSTANCE_DIR):
-        annotation_files = filter_for_instances(INSTANCE_DIR, instance_files, image_filename)
+                annotation_info = pycococreatortools.create_annotation_info(
+                        segmentation_id, image_id, category_info, binary_mask,
+                        image.size, tolerance=2)
 
-        # go through each associated annotation
-        for annotation_filename in annotation_files:
-            annotation_path = os.path.join(INSTANCE_DIR, annotation_filename)
-            print(annotation_path)
-            class_id = [x['id'] for x in CATEGORIES if x['name'] in annotation_filename][0]
+                if annotation_info is not None:
+                    coco_output["annotations"].append(annotation_info)
 
-            category_info = {'id': class_id, 'is_crowd': 'crowd' in image_filename}
-            binary_mask = np.asarray(Image.open(annotation_path)
-                                        .convert('1')).astype(np.uint8)
+                    segmentation_id = segmentation_id + 1
 
-            annotation_info = pycococreatortools.create_annotation_info(
-                    segmentation_id, image_id, category_info, binary_mask,
-                    image.size, tolerance=2)
-
-            if annotation_info is not None:
-                coco_output["annotations"].append(annotation_info)
-
-                segmentation_id = segmentation_id + 1
-
-        image_id = image_id + 1
+            image_id = image_id + 1
+            print(image_id)
  
-    with open('{}/val.json'.format(ROOT_DIR), 'w') as output_json_file:
+    with open('{}/val_modified.json'.format(ROOT_DIR), 'w') as output_json_file:
         json.dump(coco_output, output_json_file)
+    print(car, pedestrian, truck, bus, rider)
  
  
 if __name__ == "__main__":
     # image_trans()
     # data_loader()
-    json_generate()
+    # json_generate()
     
     
