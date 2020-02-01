@@ -146,24 +146,6 @@ def masks_generator(imges, ann_path):
             idx += 1
         pic_count += 1
         print(pic_count)
-
-def filter_for_pic(files):
-    file_types = ['*.jpeg', '*.jpg', '*.png']
-    file_types = r'|'.join([fnmatch.translate(x) for x in file_types])
-    files = [f for f in files if re.match(file_types, f)]
-    # files = [os.path.join(root, f) for f in files]
-    return files
- 
-def filter_for_instances(root, files, image_filename):
-    file_types = ['*.png']
-    file_types = r'|'.join([fnmatch.translate(x) for x in file_types])
-    files = [f for f in files if re.match(file_types, f)]
-    basename_no_extension = os.path.splitext(os.path.basename(image_filename))[0]
-    file_name_prefix = basename_no_extension + '.*'
-    # files = [os.path.join(root, f) for f in files]
-    files = [f for f in files if re.match(file_name_prefix, os.path.splitext(os.path.basename(f))[0])]
-    return files
- 
  
 def json_generate():
     car = 0
@@ -193,7 +175,6 @@ def json_generate():
                 image_id, os.path.basename(image_filename), image.size)
         coco_output["images"].append(image_info)
         print(image_filename)
-        # annotation_files = filter_for_instances(INSTANCE_DIR, instance_files, image_filename)
         annotation_sub_path = os.path.join(INSTANCE_DIR, image_name)
         ann_files = os.listdir(annotation_sub_path)
         if len(ann_files) == 0:

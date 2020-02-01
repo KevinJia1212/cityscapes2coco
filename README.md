@@ -5,6 +5,8 @@ transcityscapes2coco.py has some details that users should modify, like class de
 
 visualize_coco.py can be used to visualize pictures and annotations of your converted dataset.
 
+check.py helps to count instance amount of each category by reading the .json annotation file. 
+
 USAGE:
 1.Before to run the scripts, you need to modify ROOT_DIR, IMAGE_DIR, ANNOTATION_DIR and create a INSTANCE_DIR under the ROOT_DIR to save binary masks of each instances.
 
@@ -12,6 +14,6 @@ USAGE:
 
 3.Modify the file name of the .json output file at the end of transform script.
 
-4.Run the scripts, and you can see some outputs in the terminal.
+4.Run the three functions of the script in order , and you can see some outputs in the terminal.
 
 5.When finished, you can visualize the converted dataset by modify some path of files you just created    
